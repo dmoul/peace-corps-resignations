@@ -1,0 +1,69 @@
+# Introduction {.unnumbered}
+
+Since the 1960s the US Peace Corps mission has been to promote world peace and friendship by fulfilling three goals^[<https://www.peacecorps.gov/about/> ]
+
+1. To help the countries interested in meeting their need for trained people.
+1. To help promote a better understanding of Americans on the part of the peoples served.
+1. To help promote a better understanding of other peoples on the part of Americans.
+
+In practice, the mission for individual volunteers often includes other aspects of community development. It certainly did for me in 1991-1993 when I worked as a "Computer advisor and trainer" for the Ministry of Education in the Fiji Islands.
+
+It was one of the most formative experiences in my life: overwhelmingly positive yet not without its share of stress and struggle. Most volunteers were highly motivated, idealistic, and wanted to make a difference. Yet I saw some members of my cohort leave early due to health problems, unmet expectations, and infraction of Peace Corps rules or standards. These and many other reasons can lead to resignations prior to the normal two-year volunteer assignment.
+
+Thus I was interested to see a data set shared by the Data Liberation Project with [Peace Corps resignation counts](https://www.data-liberation-project.org/datasets/peace-corps-resignations/) world-wide by county (more accurately: "post" not "country") that occurred for reasons other than medical evacuation. The Peace Corps provided data as the result of a Freedom of Information Act request (and only reluctantly, after appeal)^[See narrative at <https://www.data-liberation-project.org/datasets/peace-corps-resignations/>]. 
+
+There are lots of issues that limit the value of this data set, including the following:
+
+* It's unclear what time frame is covered (only that the data is "through July 31 2023").
+* Data points do not include time stamps, so it's impossible to discern on-going versus changing dynamics that might have occurred during the time frame (for example, changes to Peace Corps policy or degree of unrest or lawlessness in a country).
+* Without total volunteer counts per post over the same time frame we cannot tell which posts are under- or over-represented in resignations.
+* Additionally and most significantly: the Data Liberation data page for this data set includes the following:
+
+> Note: The Peace Corps says it cannot vouch for the accuracy of the data. Footnotes in the initial document provided by the agency say:
+> 
+> * Data on resignation reason is best guess from Peace Corps overseas staff.
+> * Data is not used for agency analysis, as it is deemed not trustworthy.
+> * Data is collected through “Attachment D” – which is currently being removed from Volunteer exit interview.
+> * Data collected from “Attachment D”(data that was requested) is currently in the process of being removed from database.
+> * Any analysis done on this data is not an accurate reflection of Volunteer resignation reasons.
+> 
+> And the appeal-granting letter notes, “I reiterate that Peace Corps has not confirmed the accuracy of the data in the database as described in the Footnotes of the original document.”
+
+Nonetheless there are interesting things we can learn from the data, including the following:
+
+* Which posts were the source of the most and least resignations?
+* After aggregating posts into regions: are there some regions in which particular reasons for resignation are much more prevalent?
+
+
+# Observations {.unnumbered}
+
+Based on the summaries and visualizations in the next chapter, I offer the following observations:
+
+1. The proportion of reasons is surprisingly consistent across regions (@fig-most-resignations-reasons-by-region). Given the imprecision in the data, I don't think we can draw any firm conclusions about particular reasons being more prevalent in one region than another (for example, adaptation or safety).
+
+2. More than half of the reasons are "personal/family" and "adaptation/mental health". Since the events leading to a decision to leave are often traumatic, and whatever the reason, there is a loss of face in country and back home when leaving early, I assume people may not give the real primary reason for their departure (they may not be sure themselves). It's likely in some cases that "personal/family" is a face-saving way to avoid admitting to adaptation/mental health challenges or issues with one's assignment. About two thirds of the resignations are associated with one of these top three reasons (@fig-reasons).
+
+3. Notwithstanding point (1): if I were a Peace Corps manager, I would look at the regions (and posts) where Peace Corps was identified as the primary reason for resignation at a higher proportion than other regions and posts (@fig-most-resignations-reason-by-region).
+
+If the experiences of my cohort in Fiji are generally representative (and they may not be), by far the largest reason for early departure is probably medical evacuation, and this information is not in this data set.
+
+
+# Acknowledgements {.unnumbered}
+
+* I'm grateful to the many dedicated people working for the Peace Corps during my time of service as well as my sponsors in the Ministry of Education and colleagues at the teachers college in Nasinu, Fiji, which was then called the Fiji College of Advanced Education.
+
+* The image on this page is the logo of the US Peace Corps. I have no current relationship with the Peace Corps and don't speak for the organization.
+
+* This data set is available through the efforts of the [Data Liberation Project](https://www.data-liberation-project.org).
+
+* Hat tip to Jeremy Singer-Vine and [Data is Plural](https://www.data-is-plural.com/archive/2024-02-28-edition/) 2024.02.28 edition for mentioning the Data Liberation Project, which led to my discovery of this data set.
+
+
+# License {.unnumbered}
+
+This text is licensed under [CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/).
+
+The files that generate this text are licensed under the MIT license.
+
+<br>
+

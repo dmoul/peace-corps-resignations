@@ -1,0 +1,621 @@
+# Exploration {.unnumbered}
+
+```{r}
+#| label: setup
+#| message: false
+#| warning: false
+
+library(here)
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(units)
+library(janitor)
+library(glue)
+library(readxl)
+library(gt)
+library(patchwork)
+library(broman)
+library(countrycode)
+
+theme_set(theme_light() + 
+            theme(panel.border = element_blank(),
+                  panel.grid = element_blank(),
+                  plot.title = element_text(size = rel(2.0),
+                                            face = "bold"),
+                  plot.title.position = "plot"
+            )
+)
+
+my_caption <- "Daniel Moul. Source: US Peace Corps\nvia Data Liberation Project FOI request"
+
+n_cutoff <- 50
+
+```
+
+```{r}
+
+###### Prepare some extra categorical information
+
+df_reasons_primary <- bind_rows(
+  tibble(
+    descr_primary = c("personal/family", "other personal/family related", "friend(s) or other family responsibility", 
+                      "death/illness of close friend or family member", "other family", "family financial obligations"),
+    reason_primary = "personal/family"
+  ),
+  tibble(
+    descr_primary = c("adaptation", "unrealistic expectations", "emotional/mental health", "host country culture", 
+                      "preferred another country/region", "homesick"),
+    reason_primary = "adaptation/mental health"
+  ),
+  tibble(
+    descr_primary =  c("resignation in lieu of administrative separation", "peace corps policies", "illegal substance", 
+                       "alcohol", "unable to adhere to peace corps policies", "use of illegal substance or misuse of alcohol"),
+    reason_primary = "policy"
+  ),
+  tibble(
+    descr_primary = c("other career opportunity", "further education", "financial"),
+    reason_primary = "career/finances"
+  ),
+  tibble(
+    descr_primary = c("job related", "matching skills with work assignment", "other program/work assignment", 
+                      "other program/work related (please explain)", "host country counterpart/support", 
+                      "other country assignment/adaptation", "amount of work", 
+                      "project/site development", "language skills", "host community/host family", "site location", 
+                      "technical skills", "technical support", "living arrangements/housing location", 
+                      "assignment not development work/not needed", "insufficient work to do",
+                      "other job related issues (philosophical difference)", "received inaccurate information re: assignment"),
+    reason_primary = "assignment"
+  ),
+  tibble(
+    descr_primary = c("physical health", "medical concerns", "medical support") ,
+    reason_primary = "health"
+  ),
+  tibble(
+    descr_primary = c("personal safety", "other personal safety", "crime and personal safety", "sexual assault/harassment", 
+                      "political/civil unrest", "road safety/traveling", "other personal safety (please explain)", 
+                      "physical assault/harassment", "political/civil unrest makes work too difficult", 
+                      "road safety concerns/dangerous traveling", "other concerns related to personalsafety"),
+    reason_primary = "safety"
+  ),
+  tibble(
+    descr_primary = c("other", "prefer not to respond", "other (please explain)", "v/t prefers not to respond"),
+    reason_primary = "other"
+  ),
+  tibble(
+    descr_primary = c("romantic interest", "spousal responsibility", "early termination of spouse", 
+                      "divorce or separation from pcv/t spouse"),
+    reason_primary = "partner"
+  ),
+  tibble(
+    descr_primary = c("other volunteers/trainees", "administrative support", "other peace corps support",
+                      "peace corps staff in country", "conflict with volunteers/trainees"),
+    reason_primary = "peace corps"
+  )
+) |>
+  select(reason_primary, descr_primary) |>
+  arrange(reason_primary, descr_primary)
+
+df_reasons_secondary <- bind_rows(
+  tibble(
+    descr_secondary = c("death/illness of close friend or family member", "family financial obligations", 
+      "friend(s) or other family responsibility", "other family", "other personal/family related", 
+      "personal/family"),
+    reason_secondary = "personal/family"
+  ),
+  tibble(
+    descr_secondary = c("adaptation", "emotional/mental health", "host country culture", "language skills", 
+      "other country assignment/adaptation", "preferred another country/region", 
+      "unrealistic expectations"),
+    reason_secondary = "adaptation/mental health"
+  ),
+  tibble(
+    descr_secondary = c("alcohol", "illegal substance", "peace corps policies", "resignation in lieu of administrative separation", 
+      "unable to adhere to peace corps policies", "use of illegal substance or misuse of alcohol"),
+    reason_secondary = "policy"
+  ),
+  tibble(
+    descr_secondary = c("financial", "further education", "other career opportunity"),
+    reason_secondary = "career/finances"
+  ),
+  tibble(
+    descr_secondary = c("amount of work", "assignment not development work/not needed", "conflicts with hc supervisor", 
+      "host community/host family", "host country counterpart/support", "job not related to future career goals", 
+      "job related", "living arrangements/housing location", "matching skills with work assignment", 
+      "other job related issues (philosophical difference)", "other program/work assignment", 
+      "other program/work related (please explain)", "project/site development", "received inaccurate information re: assignment", 
+      "site location", "technical skills", "technical support") ,
+    reason_secondary = "assignment"
+  ),
+  tibble(
+    descr_secondary = c("medical concerns", "medical support"),
+    reason_secondary = "health"
+  ),
+  tibble(
+    descr_secondary = c("crime and personal safety", "other personal safety", "other personal safety (please explain)", "personal safety", 
+      "physical assault/harassment", "physical health", "political/civil unrest", "political/civil unrest makes work too difficult", 
+      "road safety concerns/dangerous traveling", "road safety/traveling", "sexual assault/harassment"),
+    reason_secondary = "safety"
+  ),
+  tibble(
+    descr_secondary = c("other", "other (please explain)", "prefer not to respond", "v/t prefers not to respond"),
+    reason_secondary = "other"
+  ),
+  tibble(
+    descr_secondary = c("divorce or separation from pcv/t spouse", "early termination of spouse", 
+      "romantic interest", "spousal responsibility"),
+    reason_secondary = "partner"
+  ),
+  tibble(
+    descr_secondary = c("administrative support", "conflict with volunteers/trainees", "other peace corps support", 
+      "other volunteers/trainees", "peace corps staff in country"),
+    reason_secondary = "peace corps"
+  )
+) |>
+  select(reason_secondary, descr_secondary) |>
+  arrange(reason_secondary, descr_secondary)
+
+df_country_info <- countrycode::codelist |>
+  clean_names() |>
+  select(country_name_en, continent, region) |>
+  mutate(country_name_en = str_to_lower(country_name_en))
+
+
+###### Get the data
+
+dta <- read_xlsx(here("data/raw/Attachment_D_data_pulled_7_31_23.xlsx")) |>
+  clean_names()  |>
+  mutate(across(where(is.character), str_to_lower)) |>
+  rename(descr_primary = et_prim_desc,
+         descr_secondary = et_sec_desc,
+         count = count_of_vol_id) |>
+  separate_wider_delim(post_name, names = c("post", "city"),
+                       delim = "/",
+                       too_few = "align_start") |>
+  select(-c(et_desc, city, et_prim_reason, et_sec_reason)) |>
+  left_join(df_reasons_primary,
+             by = "descr_primary") |>
+  left_join(df_reasons_secondary,
+             by = "descr_secondary") |>
+  left_join(df_country_info,
+            by = join_by(post == country_name_en)) |>
+  mutate(region = if_else(post %in% c("png", "micronesia", "myanmar"),
+                          "East Asia & Pacific",
+         region),
+         region = if_else(post %in% c("car", "congo", "cote d ivoire", "zaire", "sao tome", "guinea bissau"),
+                          "Sub-Saharan Africa",
+         region),
+         region = if_else(post %in% c("czech", "russia far east", "russia western", "bosnia"),
+                          "Europe & Central Asia",
+         region),
+         region = if_else(post %in% c("eastern caribbean"),
+                          "Latin America & Caribbean",
+         region)
+  ) |>
+  filter(!region == "pcr us relief") # leaving out 19 data points; since I don't know what this is (which region?)
+
+```
+
+```{r}
+
+###### prepare dataframes
+
+d_totals_post <- dta |>
+  filter(is.na(descr_primary)) |>
+  remove_empty(which = "cols")
+
+top_post_subset <- d_totals_post |>
+  slice_max(order_by = count, n = n_cutoff)
+
+d_totals_post_primary <- dta |>
+  filter(!is.na(descr_primary) & is.na(descr_secondary)) |>
+  remove_empty(which = "cols") |>
+  count(post, region, reason_primary, wt = count, sort = TRUE) |>
+  mutate(pct_in_post = n / sum(n),
+         .by = post)
+
+d_totals_region_primary <- dta |>
+  filter(!is.na(descr_primary) & is.na(descr_secondary)) |>
+  remove_empty(which = "cols") |>
+  count(region, reason_primary, wt = count, sort = TRUE) |>
+  mutate(pct_in_region = n / sum(n),
+         .by = region)
+
+d_totals_primary <- dta |>
+  filter(!is.na(descr_primary) & is.na(descr_secondary)) |>
+  remove_empty(which = "cols") ##|>
+  ##count(reason_primary, wt = count, sort = TRUE)
+
+d_totals_primary_reason <- d_totals_primary |>
+  count(reason_primary, wt = count, sort = TRUE)
+
+d_totals_secondary_reason <- dta |>
+  filter(!is.na(descr_secondary)) |>
+  count(reason_secondary, wt = count, sort = TRUE)
+
+```
+
+## Posts by region
+
+Since some small missions cover multiple countries, Peace Corps uses the term "post" instead of "country". There are `r nrow(d_totals_post)` posts in the data set.
+
+Below are the `r n_cutoff` posts with the most resignations. See @fig-all-posts-count for the full list.
+
+::: {.callout-warning}
+## Be careful with comparisons
+
+Without knowing how many volunteers went to each country in this time period, simple counts don't help us to assess which countries are under- or over-represented in resignations.
+
+A more valid comparison is the *proportion of reasons* and *proportion of regions* in the plots with "B" panels below.
+
+:::
+
+```{r fig.height=6, fig.width=8}
+#| label: fig-most-resignations-post-region
+#| fig-cap: "Posts with most Peace Corps resignations, grouped by region"
+#| fig-height: 6
+#| fig-width: 8
+#| column: page-right
+
+d_totals_post |>
+  mutate(post = fct_lump_n(post, n_cutoff, w = count)) |>
+  count(post, region, wt = count, sort = TRUE) |>
+  mutate(pct_of_all = n / sum(n)) |>
+  filter(post != "Other") |>
+  mutate(post = fct_reorder(post, n)) |>
+  ggplot(aes(n, post, fill = region)) +
+  geom_col(show.legend = FALSE,
+           alpha = 0.7) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_fill_viridis_d(end = 0.9) +
+  facet_wrap(~region, scales = "free_y") +
+  labs(
+    title = glue("Posts with most Peace Corps volunteer resignations"),
+    subtitle = glue("Top {n_cutoff} posts by region"),
+    x = NULL,
+    y = NULL,
+    caption = my_caption
+  )
+
+```
+
+<br>
+
+## Consolidated reasons
+
+The spreadsheet provided by the Peace Corps includes too many categories. So I consolidated them into 10 categories (@fig-reasons). The detailed mapping is available in @tbl-reasons-mapping. 
+
+```{r fig.height=6, fig.width=12}
+#| label: fig-reasons
+#| fig-cap: "Primary reasons"
+#| fig-height: 5
+#| fig-width: 7
+#| column: page-right
+
+dta_for_plot <- d_totals_post_primary |>
+  count(reason_primary, wt = n, sort = TRUE) |>
+  mutate(pct_of_all = n / sum(n)) |>
+  mutate(reason_primary = fct_reorder(reason_primary, n, sum)) |>
+  arrange(desc(reason_primary)) |>
+  mutate(end_pct = cumsum(pct_of_all),
+         start_pct = lag(end_pct, default = 0)
+         )
+
+dta_for_plot |>
+  ggplot() +
+  geom_errorbarh(aes(xmin = start_pct, xmax = end_pct, y = reason_primary, color = reason_primary),
+                 height = 0.3,
+               show.legend = FALSE,
+               alpha = 0.7) +
+  scale_x_continuous(expand = expansion(mult = c(0.005, 0.05)),
+                     labels = label_percent(),
+                     breaks = 0:5 * 0.2) +
+  scale_color_viridis_d(end = 0.9) +
+  theme(axis.ticks = element_blank()) +
+  labs(
+    title = glue("Proportions of reasons"),
+    subtitle = glue("All posts"),
+    x = NULL,
+    y = NULL,
+    caption = my_caption
+  )
+
+```
+
+<br>
+
+## Regions and reasons
+
+```{r fig.height=6, fig.width=10}
+#| label: fig-most-resignations-reasons-by-region
+#| fig-cap: "Count and proportion of resignations reasons by region"
+#| fig-height: 6
+#| fig-width: 10
+#| column: page-right
+
+p1 <- d_totals_region_primary |>
+  mutate(region = fct_reorder(region, n),
+         reason_primary = fct_reorder(reason_primary, pct_in_region, sum)) |>
+  ggplot(aes(n, region, fill = reason_primary)) +
+  geom_col(show.legend = TRUE,
+           alpha = 0.7) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  # scale_fill_viridis_d(end = 0.9) +
+  theme(legend.position = c(0.7, 0.3)) +
+  labs(
+    subtitle = "A: Count",
+    x = NULL,
+    y = NULL
+  )
+
+p2 <- d_totals_region_primary |>
+  mutate(region = fct_reorder(region, n),
+         reason_primary = fct_reorder(reason_primary, pct_in_region, sum)) |>
+  ggplot(aes(pct_in_region, region, fill = reason_primary)) +
+  geom_col(show.legend = FALSE,
+           alpha = 0.7) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05)),
+                     labels = label_percent()) +
+  # scale_fill_viridis_d(end = 0.9) +
+  labs(
+    subtitle = "B: Relative proportion in region",
+    x = NULL,
+    y = NULL
+  )
+
+p1 + p2 +
+  plot_annotation(
+    title = glue("Regions by reason"),
+    subtitle = glue("Count and relative proportion of reasons; includes all posts"),
+    caption = my_caption
+  )
+
+```
+
+<br>
+
+A note re: @fig-most-resignations-reason-by-region: since there are so few data points from South Asia compared to the other regions (@fig-most-resignations-reasons-by-region), the large proportions of "other" and "health" reasons in South Asia below may not be as noteworthy as they first appear.
+
+```{r fig.height=6, fig.width=10}
+#| label: fig-most-resignations-reason-by-region
+#| fig-cap: "Count and proportion of reasons colored by region"
+#| fig-height: 6
+#| fig-width: 10
+#| column: page-right
+
+p1 <- d_totals_region_primary |>
+  mutate(region = fct_reorder(region, n),
+         reason_primary = fct_reorder(reason_primary, pct_in_region, sum)) |>
+  ggplot(aes(pct_in_region, reason_primary, fill = region)) +
+  geom_col(show.legend = TRUE,
+           alpha = 0.7) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_fill_viridis_d(end = 0.9) +
+  theme(legend.position = c(0.7, 0.3)) +
+  labs(
+    subtitle = "A: Count",
+    x = NULL,
+    y = NULL
+  )
+
+p2 <- d_totals_region_primary |>
+  mutate(region = fct_reorder(region, n),
+         reason_primary = fct_reorder(reason_primary, pct_in_region, sum)) |>
+  ggplot(aes(pct_in_region, reason_primary, fill = region)) +
+  geom_col(show.legend = FALSE,
+           position = position_fill(),
+           alpha = 0.7) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05)),
+                     labels = label_percent()) +
+  scale_fill_viridis_d(end = 0.9) +
+  labs(
+    subtitle = "B: Relative proportion in region",
+    x = NULL,
+    y = NULL
+  )
+
+ p1 + p2 +
+  plot_annotation(
+    title = glue("Reasons by region"),
+    subtitle = glue("Count and relative proportion of regions for each reason; includes all posts"),
+    caption = my_caption
+  )
+
+```
+
+<br>
+
+## Reasons ranked
+
+The data set includes primary and secondary reasons in most cases. I use the same categorization for both. As noted in @fig-primary-secondary-reasons-count, number of resignations differ (1) in total between primary and secondary reasons; and (2) in the counts of the categories.
+
+```{r fig.height=8, fig.width=10}
+#| label: fig-primary-secondary-reasons-count
+#| fig-cap: "Ranking and counts of primary and secondary reasons for resignation"
+#| fig-height: 8
+#| fig-width: 10
+#| column: page-right
+#| warning: false
+
+dta_for_plot <- bind_rows(
+  d_totals_primary_reason |>
+    mutate(source = "primary") |>
+    rename(reason = reason_primary),
+  d_totals_secondary_reason  |>
+    mutate(source = "secondary") |>
+    rename(reason = reason_secondary)
+) %>%
+  mutate(rank = rank(n),
+         source_label = glue("{cur_group()} (n={sum(n)})"),
+         .by = source) |>
+  mutate(reason = str_replace_all(reason, "adaptation/mental health", "adaptation/\nmental health"))
+
+p1 <- dta_for_plot |>
+  ggplot(aes(source_label, rank , color = reason, group = reason)) +
+  geom_point(size = 3, alpha = 1) +
+  geom_line() +
+  geom_label(aes(label = if_else(str_detect(source_label, "primary"),
+                                 reason,
+                                 NA_character_)),
+                 hjust = 1,
+                 na.rm = TRUE) +
+  geom_label(aes(label = if_else(str_detect(source_label, "secondary"),
+                                 reason,
+                                 NA_character_)),
+                 hjust = 0,
+                 na.rm = TRUE) +
+  guides(color = "none") +
+  scale_x_discrete(expand = expansion(mult = c(0.75, 0.75)),
+                   position = "top") +
+  scale_y_continuous(breaks = 0:5 * 2) +
+  labs(
+    subtitle = "A: Ranked (1 is lowest)",
+    x = NULL,
+    y = "Rank"
+  )
+
+p2 <- dta_for_plot |>
+  ggplot(aes(source_label, n, color = reason, group = reason)) +
+  geom_point(size = 3, alpha = 1) +
+  geom_line() +
+  geom_label(aes(label = if_else(str_detect(source_label, "primary"),
+                                 reason,
+                                 NA_character_)),
+                 hjust = 1,
+                 na.rm = TRUE) +
+  geom_label(aes(label = if_else(str_detect(source_label, "secondary"),
+                                 reason,
+                                 NA_character_)),
+                 hjust = 0,
+                 na.rm = TRUE) +
+  guides(color = "none") +
+  scale_x_discrete(expand = expansion(mult = c(0.75, 0.75)),
+                   position = "top") +
+  expand_limits(x = 0) +
+  labs(
+    subtitle = "B: Count",
+    x = NULL,
+    y = "Count",
+  )
+
+p1 + p2 +
+  plot_annotation(
+    title = "Primary and secondary reasons\nfor Peace Corps volunteers' resignations",
+    caption = my_caption
+  )
+
+```
+
+<br>
+
+```{r}
+#| label: tbl-reasons
+#| tbl-cap: "Reasons"
+#| layout-ncol: 2
+
+d_totals_primary_reason |>
+  mutate(reason_primary = str_replace_all(reason_primary, "adaptation/mental health", "adaptation/\nmental health")) |>
+  adorn_totals(where = "row") |>
+  gt() |>
+  tab_header(md("**Count of primary reasons**"))
+
+d_totals_secondary_reason |>
+  mutate(reason_secondary = str_replace_all(reason_secondary, "adaptation/mental health", "adaptation/\nmental health")) |>
+  adorn_totals(where = "row") |>
+  gt() |>
+  tab_header(md("**Count of secondary reasons**"))
+
+```
+
+<br>
+
+## Appendix
+
+### Category consolidation
+
+Below is the manual consolidation of categories I created.  Primary and secondary categories are the same.
+
+```{r}
+#| label: tbl-reasons-mapping
+#| tbl-cap: "Reasons"
+
+df_reasons_primary |>
+  gt() |>
+  tab_header(md("**reason_primary is a manual consolidation of descr_primary**")) |>
+  tab_source_note(md("*Daniel Moul. Source: US Peace Corps via Data Liberation Project*"))
+
+```
+
+<br>
+
+### Resignations in all posts
+
+```{r fig.height=10, fig.width=8}
+#| label: fig-all-posts-count
+#| fig-cap: "Count of non-medevac resignations (all posts)"
+#| fig-height: 10
+#| fig-width: 8
+#| column: page-right
+
+dta_for_table <- d_totals_post |>
+  arrange(desc(count)) |>
+  mutate(idx = row_number(),
+         layout_col = floor(idx / 26) + 1,
+         layout_label = glue("Part {layout_col}"),
+         post = fct_reorder(post, count)
+         )
+
+dta_for_table |>
+  select(-layout_col) |>
+  ggplot() +
+  geom_col(aes(count, post, fill = region),
+           alpha = 0.7) +
+  scale_fill_viridis_d(end = 0.9) +
+  facet_wrap(~layout_label, scales = "free_y") +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "Count of Peace Corps resignations",
+    subtitle = "All posts ordered by count; through 2023-07-31; start of date interval is unknown",
+    x = NULL,
+    y = NULL,
+    caption = my_caption
+  )
+
+```
+
+<br>
+
+```{r fig.height=10, fig.width=8}
+#| label: fig-all-posts-count-sorted-byregion
+#| fig-cap: "Count of resignations (all posts by region)"
+#| fig-height: 10
+#| fig-width: 8
+#| column: page-right
+
+dta_for_table <- d_totals_post |>
+  mutate(post = fct_reorder(post, count))
+
+dta_for_table |>
+  ggplot() +
+  geom_col(aes(count, post, fill = region),
+           alpha = 0.7) +
+  scale_fill_viridis_d(end = 0.9) +
+  facet_wrap(~region, scales = "free_y") +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "Count of Peace Corps resignations",
+    subtitle = "All posts ordered by count by region; through 2023-07-31; start of date interval is unknown",
+    x = NULL,
+    y = NULL,
+    caption = my_caption
+  )
+
+```
+
+<br>
+
+### Other notes
+
+I excluded less than 20 records related to the post "pcr us relief", presumably [Peace Corps Response](https://www.peacecorps.gov/volunteer/peace-corps-response/), for since the data is either not associated with one geographical location or "us relief" implies these assignments were in the USA.
+
+<br>

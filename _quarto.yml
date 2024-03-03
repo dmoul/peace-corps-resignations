@@ -1,0 +1,27 @@
+project:
+  type: book
+
+book:
+  title: "Peace Corps Resignations"
+  author: Daniel Moul
+  date: today
+  cover-image: "./images/logo-stacked-charcoal.svg"
+  cover-image-alt: "US Peace Corps logo"
+  page-footer: 
+    center: "Copyright 2024 by [Daniel Moul](https://dmoul.github.io). License: [CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/)"
+    background: dark
+  chapters:
+    - index.qmd
+    - explore.qmd
+
+format:
+  html:
+    theme: cosmo
+    code-fold: true
+    number-sections: true
+    code-summary: "Show the code"
+    page-layout: full
+    toc: true
+    toc-depth: 3
+    title-block-banner: true
+    
